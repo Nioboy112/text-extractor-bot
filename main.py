@@ -1,62 +1,52 @@
-from telegram import Update
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext
-import zipfile
+from telegram.ext import Updater, CommandHandler, MessageHandler, Filters
 import os
+import zipfile
 
-ALLOWED_EXTENSIONS = [
-    ".txt", ".csv", ".html", ".xml", ".json", ".log", ".css", ".sql", ".md", ".ini",
-    ".cfg", ".bat", ".sh", ".php", ".js", ".py", ".c", ".cpp", ".java", ".rb", ".perl",
-    ".pl", ".swift", ".go", ".kotlin", ".asm", ".diff", ".patch", ".tex", ".r", ".sass",
-    ".scss", ".yaml", ".yml", ".htaccess", ".jsx", ".tsx", ".dart", ".vue", ".groovy",
-    ".coffee", ".h", ".hh", ".m", ".f", ".fortran", ".as", ".cs", ".lisp", ".awk",
-    ".asm", ".cc", ".hpp", ".hh", ".f90", ".scala", ".ts", ".gql", ".graphql", ".cob",
-    ".cobol", ".ada", ".ada95", ".adb", ".ads", ".tcl", ".bat", ".bash", ".bsh", ".csh",
-    ".fish", ".ksh", ".tcsh", ".zsh", ".fish", ".ps1", ".ps", ".raku", ".rs", ".psm1",
-    ".pyw", ".pl", ".pm", ".rkt", ".sc", ".scm", ".ss", ".sls", ".smali", ".tsv", ".url",
-    ".vbs", ".vba", ".wsf", ".xlsx", ".xls", ".xlsm", ".docx", ".doc", ".rtf"
+# Add more text-based file extensions if needed
+text_extensions = [
+    ".txt", ".html", ".xml", ".css", ".js", ".json", ".csv", ".log", ".md", ".yaml",
+    ".ini", ".cfg", ".bat", ".sh", ".sql", ".py", ".java", ".c", ".cpp", ".rb", ".pl",
+    ".php", ".asp", ".jsp", ".jsx", ".ts", ".scss", ".less", ".sass", ".coffee",
+    ".htaccess", ".properties", ".r", ".lua", ".tex", ".rmd", ".yml", ".groovy",
+    ".bat", ".vbs", ".cmd", ".asm", ".pde", ".f90", ".hs", ".swift", ".pl",
+    ".lisp", ".clj", ".scala"
 ]
 
-def start(update: Update, context: CallbackContext) -> None:
-    update.message.reply_text('Send me a zip file.')
+def start(update, context):
+    update.message.reply_text("Hello! Please send me a zip file.")
 
-def extract_zip(file_path: str) -> None:
+def process_zip(file_path):
+    file_contents = ""
     with zipfile.ZipFile(file_path, 'r') as zip_ref:
-        zip_ref.extractall('extracted_folder')
+        for file_info in zip_ref.infolist():
+            if os.path.splitext(file_info.filename)[1] in text_extensions:
+                with zip_ref.open(file_info.filename) as file:
+                    file_contents += f"{file_info.filename}\n{file.read().decode('utf-8')}\n\n"
+    return file_contents
 
-def send_text_content_recursive(update: Update, directory: str) -> None:
-    for root, dirs, files in os.walk(directory):
-        for file in files:
-            file_extension = os.path.splitext(file)[1]
-            if file_extension in ALLOWED_EXTENSIONS:
-                file_path = os.path.join(root, file)
-                with open(file_path, 'r') as f:
-                    file_content = f.read()
-                    # Send filename as a heading
-                    update.message.reply_text(f"ð {file}\n\n")
-                    
-                    # Send text content back to user
-                    chunk_size = 4000  # Adjust the chunk size based on Telegram's message size limit
-                    for i in range(0, len(file_content), chunk_size):
-                        update.message.reply_text(file_content[i:i+chunk_size])
-
-def copy_text_files(update: Update, context: CallbackContext) -> None:
+def handle_document(update, context):
     file_id = update.message.document.file_id
     file = context.bot.get_file(file_id)
-    file_path = file.file_path
-    file.download('received_zip.zip')
-    
-    try:
-        extract_zip('received_zip.zip')
-        send_text_content_recursive(update, 'extracted_folder')
-    except Exception as e:
-        update.message.reply_text(f"An error occurred: {str(e)}")
+    file_path = file.download()
 
-def main() -> None:
-    updater = Updater("6618564239:AAFocGP8FrjZCRQ3U4ur0vaV5IORfpQq-cA")
+    if file_path.endswith('.zip'):
+        contents = process_zip(file_path)
+        if contents:
+            with open('text_contents.txt', 'w', encoding='utf-8') as txt_file:
+                txt_file.write(contents)
+            update.message.reply_document(open('text_contents.txt', 'rb'))
+        else:
+            update.message.reply_text("No text-based files found in the zip.")
+    else:
+        update.message.reply_text("Please send a zip file.")
+
+def main():
+    # Replace 'YOUR_BOT_TOKEN' with your actual bot token
+    updater = Updater(token='6618564239:AAFocGP8FrjZCRQ3U4ur0vaV5IORfpQq-cA', use_context=True)
     dispatcher = updater.dispatcher
 
     dispatcher.add_handler(CommandHandler("start", start))
-    dispatcher.add_handler(MessageHandler(Filters.document.file_extension('zip'), copy_text_files))
+    dispatcher.add_handler(MessageHandler(Filters.document, handle_document))
 
     updater.start_polling()
     updater.idle()
