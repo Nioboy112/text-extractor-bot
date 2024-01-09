@@ -30,12 +30,14 @@ def send_text_content_recursive(update: Update, directory: str) -> None:
             if file_extension in ALLOWED_EXTENSIONS:
                 file_path = os.path.join(root, file)
                 with open(file_path, 'r') as f:
+                    file_content = f.read()
                     # Send filename as a heading
                     update.message.reply_text(f"ð {file}\n\n")
                     
                     # Send text content back to user
-                    for line in f:
-                        update.message.reply_text(line)
+                    chunk_size = 4000  # Adjust the chunk size based on Telegram's message size limit
+                    for i in range(0, len(file_content), chunk_size):
+                        update.message.reply_text(file_content[i:i+chunk_size])
 
 def copy_text_files(update: Update, context: CallbackContext) -> None:
     file_id = update.message.document.file_id
