@@ -50,7 +50,7 @@ def copy_text_files(update: Update, context: CallbackContext) -> None:
         update.message.reply_text(f"An error occurred: {str(e)}")
 
 def main() -> None:
-    updater = Updater("YOUR_BOT_TOKEN")
+    updater = Updater("6618564239:AAFocGP8FrjZCRQ3U4ur0vaV5IORfpQq-cA")
     dispatcher = updater.dispatcher
 
     dispatcher.add_handler(CommandHandler("start", start))
